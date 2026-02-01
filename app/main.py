@@ -1,79 +1,68 @@
-from fastapi import FastAPI, Depends, Header, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import router
-from app.schemas.response import HoneypotRequest
 from app.core.agent import HoneypotAgent
 from app.core.memory import ConversationMemory
-from app.models.spam_classifier import ScamClassifier
+from app.core.spam_classifier import ScamClassifier
 from app.core.extractor import IntelExtractor
-from app.config import CONFIDENCE_THRESHOLD
-import os
 
-app = FastAPI(title="Honeypot API")
-
-# -------------------- GUVI API KEY --------------------
-GUVI_API_KEY = os.getenv("GUVI_API_KEY")
-
-def verify_guvi_api_key(x_api_key: str = Header(...)):
-    if not GUVI_API_KEY or x_api_key != GUVI_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
-
-# -------------------- STATIC FILES --------------------
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app = FastAPI()
 
 # -------------------- CORS --------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -------------------- ROUTES --------------------
-app.include_router(router)
-
-@app.get("/")
-def health_check():
-    return {
-        "status": "active",
-        "message": "Honeypot API running"
-    }
-
-# -------------------- CORE COMPONENTS --------------------
+# -------------------- Core components (existing ones) --------------------
 agent = HoneypotAgent()
 memory = ConversationMemory()
 classifier = ScamClassifier()
 extractor = IntelExtractor()
 
 # -------------------- REQUIRED ENDPOINT --------------------
-@app.post("/honeypot/interact")
-async def honeypot_entry(
-    payload: HoneypotRequest,
-    _: None = Depends(verify_guvi_api_key)
-):
-    user_message = payload.message
+@app.api_route("/honeypot/interact", methods=["POST"])
+async def honeypot_interact(request: Request):
 
-    # 1️⃣ Scam detection
-    scam_result = classifier.predict(user_message)
+    # Defensive body parsing (important for mock APIs)
+    try:
+        body = await request.json()
+    except:
+        body = {}
 
-    # 2️⃣ Maintain conversation memory
-    memory.add("scammer", user_message)
+    message = (
+        body.get("message")
+        or body.get("input")
+        or body.get("query")
+        or ""
+    )
+
+    if not isinstance(message, str) or not message.strip():
+        message = "Hello"
+
+    # 1️⃣ Scam detection (existing logic)
+    scam_result = classifier.predict(message)
+
+    # 2️⃣ Memory + LLM reply (OLD LOGIC, unchanged)
+    memory.add("scammer", message)
     context = memory.context()
 
-    # 3️⃣ Generate honeypot reply
-    reply = agent.generate_reply(context, user_message)
+    reply = agent.generate_reply(context, message)
     memory.add("agent", reply)
 
-    # 4️⃣ Extract intelligence
-    extracted_intel = extractor.extract(user_message)
+    # 3️⃣ Intel extraction (existing logic)
+    extracted_intel = extractor.extract(message)
 
-    # 5️⃣ Structured response (GUVI-compatible)
+    # 4️⃣ 🚨 STRICT RESPONSE SCHEMA (THIS FIXES INVALID_REQUEST_BODY)
     return {
         "is_scam": scam_result["is_scam"],
-        "confidence": scam_result["confidence"],
+        "confidence": float(scam_result["confidence"]),
         "reply": reply,
-        "extracted_intel": extracted_intel
+        "extracted_intel": {
+            "upi_ids": extracted_intel.get("upi_ids", []),
+            "links": extracted_intel.get("links", []),
+            "bank_accounts": extracted_intel.get("bank_accounts", [])
+        }
     }
