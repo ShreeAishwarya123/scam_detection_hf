@@ -13,7 +13,10 @@ extractor = IntelExtractor()
 memory = ConversationMemory()
 
 @router.post("/honeypot/interact", response_model=HoneypotResponse, dependencies=[Depends(get_api_key)])
-async def interact(body: HoneypotRequest):
+async def interact(body: HoneypotRequest = None):
+    if body is None:
+        body = HoneypotRequest()
+        
     message = body.message
 
     memory.add("scammer", message)
