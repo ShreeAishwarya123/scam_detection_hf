@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scam Honeypot Simulator</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
+        .chat-container { background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); height: 600px; display: flex; flex-direction: column; overflow: hidden; }
+        .chat-header { background: #0084ff; color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .status-badge { font-size: 0.8em; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 18px; line-height: 1.4; position: relative; }
+        .message.scammer { align-self: flex-end; background: #e4e6eb; color: black; border-bottom-right-radius: 4px; }
+        .message.agent { align-self: flex-start; background: #0084ff; color: white; border-bottom-left-radius: 4px; }
+        .message.system { align-self: center; background: #fff3cd; color: #856404; font-size: 0.85em; max-width: 90%; border: 1px solid #ffeeba; }
+        .input-area { padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; background: white; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+        input[type="text"]:focus { border-color: #0084ff; }
+        button { background: #0084ff; color: white; border: none; padding: 10px 25px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        button:hover { background: #0073e6; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .typing { font-style: italic; color: #666; font-size: 0.8em; margin-left: 10px; opacity: 0; transition: opacity 0.3s; }
+        .typing.visible { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <span>🛡️ Honeypot Simulator</span>
+            <span class="status-badge">System Online</span>
+        </div>
+        <div class="chat-messages" id="messages">
+            <div class="message system">
+                System: Waiting for incoming scam messages...<br>
+                Try sending: "URGENT: Your account is locked!"
+            </div>
+        </div>
+        <div class="typing" id="typingIndicator">Agent is typing...</div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type a message as a 'Scammer'..." autocomplete="off">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const userInput = document.getElementById('userInput');
+        const messagesDiv = document.getElementById('messages');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // Add Scammer Message
+            addMessage(text, 'scammer');
+            userInput.value = '';
+            userInput.disabled = true;
+            typingIndicator.classList.add('visible');
+
+            try {
+                const response = await fetch('/honeypot/interact', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await response.json();
+
+                typingIndicator.classList.remove('visible');
+                userInput.disabled = false;
+                userInput.focus();
+
+                // Show Detection Result
+                if (data.is_scam) {
+                    addMessage(`⚠️ <b>SCAM DETECTED</b>`, 'system');
+                    
+                    if (data.extracted_intel.links.length > 0) {
+                        addMessage(`🔗 Extracted Links: ${data.extracted_intel.links.join(', ')}`, 'system');
+                    }
+
+                    // Show Agent Reply
+                    if (data.agent_reply) {
+                        setTimeout(() => addMessage(data.agent_reply, 'agent'), 500);
+                    }
+                } else {
+                    addMessage(`✅ Message looks safe`, 'system');
+                    // OPTIONAL: If confidence is high enough but under threshold, still show reply if debugging
+                    if (data.agent_reply) {
+                         setTimeout(() => addMessage(data.agent_reply, 'agent'), 500);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                typingIndicator.classList.remove('visible');
+                userInput.disabled = false;
+                addMessage('Error connecting to server.', 'system');
+            }
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = text; // Allow HTML for system messages
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
