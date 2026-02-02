@@ -1,14 +1,24 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
 
 from app.core.agent import HoneypotAgent
 from app.core.memory import ConversationMemory
 from app.models.spam_classifier import ScamClassifier
 from app.core.extractor import IntelExtractor
 
+# -------------------- ENV --------------------
+load_dotenv()
+API_KEY = os.getenv("API_KEY")  
+
+if not API_KEY:
+    raise RuntimeError("API_KEY not set in environment variables")
+
+# -------------------- APP --------------------
 app = FastAPI()
 
-# -------------------- CORS (MANDATORY) --------------------
+# -------------------- CORS --------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,20 +26,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- Core --------------------
+# -------------------- CORE --------------------
 agent = HoneypotAgent()
 memory = ConversationMemory()
 classifier = ScamClassifier()
 extractor = IntelExtractor()
 
-# -------------------- Health --------------------
+# -------------------- HEALTH --------------------
 @app.get("/")
 def health():
-    return {"success": True, "message": "API is running"}
+    return {"success": True, "message": "Honeypot API running"}
 
 # -------------------- MAIN ENDPOINT --------------------
 @app.api_route("/honeypot/interact", methods=["POST", "OPTIONS"])
-async def honeypot_interact(request: Request):
+async def honeypot_interact(
+    request: Request,
+    x_api_key: str = Header(None)
+):
+    # 🔐 HEADER VALIDATION (MANDATORY)
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
     # -------- SAFE BODY PARSING --------
     body = {}
@@ -63,17 +79,17 @@ async def honeypot_interact(request: Request):
     try:
         reply = agent.generate_reply(context, message)
     except:
-        reply = "I am not sure I understood, can you explain again?"
+        reply = "I am confused, can you explain that again?"
 
     memory.add("agent", reply)
 
     # -------- INTEL EXTRACTION --------
     intel = extractor.extract(message)
 
-    # -------- CRITICAL: VALIDATOR-FRIENDLY RESPONSE --------
+    # -------- VALIDATOR-FRIENDLY RESPONSE --------
     return {
         "success": True,
-        "message": "Request processed successfully",
+        "message": "Honeypot interaction successful",
         "result": {
             "is_scam": bool(detection.get("is_scam", False)),
             "confidence": float(detection.get("confidence", 0.0)),
