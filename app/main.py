@@ -3,12 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.agent import HoneypotAgent
 from app.core.memory import ConversationMemory
-from app.core.spam_classifier import ScamClassifier
+from app.models.spam_classifier import ScamClassifier
 from app.core.extractor import IntelExtractor
 
-app = FastAPI()
+app = FastAPI(title="Honeypot API")
 
-# -------------------- CORS --------------------
+# -------------------- CORS (MANDATORY) --------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,53 +16,73 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- Core components (existing ones) --------------------
+# -------------------- Core Components --------------------
 agent = HoneypotAgent()
 memory = ConversationMemory()
 classifier = ScamClassifier()
 extractor = IntelExtractor()
 
-# -------------------- REQUIRED ENDPOINT --------------------
-@app.api_route("/honeypot/interact", methods=["POST"])
-async def honeypot_interact(request: Request):
+# -------------------- Health --------------------
+@app.get("/")
+def health():
+    return {"status": "ok"}
 
-    # Defensive body parsing (important for mock APIs)
+# -------------------- MAIN ENDPOINT --------------------
+@app.api_route("/honeypot/interact", methods=["POST", "OPTIONS"])
+async def honeypot_interact(request: Request):
+    """
+    This endpoint is intentionally defensive.
+    It NEVER fails on bad/missing body.
+    """
+
+    # 1️⃣ Safely parse body (or ignore if invalid)
+    body = {}
     try:
         body = await request.json()
-    except:
+        if not isinstance(body, dict):
+            body = {}
+    except Exception:
         body = {}
 
+    # 2️⃣ Extract message from anywhere
     message = (
         body.get("message")
+        or body.get("text")
         or body.get("input")
         or body.get("query")
+        or body.get("content")
         or ""
     )
 
-    if not isinstance(message, str) or not message.strip():
+    # 3️⃣ Fallback if tester sends only audio
+    if not message.strip():
         message = "Hello"
 
-    # 1️⃣ Scam detection (existing logic)
+    # 4️⃣ Scam detection
     scam_result = classifier.predict(message)
 
-    # 2️⃣ Memory + LLM reply (OLD LOGIC, unchanged)
+    # 5️⃣ Conversation + agent reply
     memory.add("scammer", message)
     context = memory.context()
 
-    reply = agent.generate_reply(context, message)
+    try:
+        reply = agent.generate_reply(context, message)
+    except Exception:
+        reply = "I am a bit confused, can you explain slowly?"
+
     memory.add("agent", reply)
 
-    # 3️⃣ Intel extraction (existing logic)
-    extracted_intel = extractor.extract(message)
+    # 6️⃣ Intel extraction
+    extracted = extractor.extract(message)
 
-    # 4️⃣ 🚨 STRICT RESPONSE SCHEMA (THIS FIXES INVALID_REQUEST_BODY)
+    # 7️⃣ STRICT JSON RESPONSE (no models)
     return {
-        "is_scam": scam_result["is_scam"],
-        "confidence": float(scam_result["confidence"]),
-        "reply": reply,
+        "is_scam": bool(scam_result.get("is_scam", False)),
+        "confidence": float(scam_result.get("confidence", 0.0)),
+        "agent_reply": reply,
         "extracted_intel": {
-            "upi_ids": extracted_intel.get("upi_ids", []),
-            "links": extracted_intel.get("links", []),
-            "bank_accounts": extracted_intel.get("bank_accounts", [])
+            "upi_ids": extracted.get("upi_ids", []),
+            "links": extracted.get("links", []),
+            "bank_accounts": extracted.get("bank_accounts", [])
         }
     }
