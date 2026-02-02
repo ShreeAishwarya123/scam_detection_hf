@@ -13,7 +13,7 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 if not API_KEY:
-    raise RuntimeError("API_KEY not set in environment variables")
+    raise RuntimeError("API_KEY not set")
 
 # -------------------- APP --------------------
 app = FastAPI()
@@ -34,28 +34,27 @@ extractor = IntelExtractor()
 
 # -------------------- HEALTH --------------------
 @app.get("/")
-def health():
+async def health():
     return {
         "success": True,
         "message": "Honeypot API running"
     }
 
 # -------------------- MAIN ENDPOINT --------------------
-@app.api_route("/honeypot/interact", methods=["POST", "OPTIONS"])
+@app.post("/honeypot/interact")
 async def honeypot_interact(
     request: Request,
     x_api_key: str = Header(None)
 ):
-    # -------- HEADER VALIDATION --------
+    # -------- API KEY VALIDATION --------
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
     # -------- SAFE BODY PARSING --------
-    body = {}
     try:
-        parsed = await request.json()
-        if isinstance(parsed, dict):
-            body = parsed
+        body = await request.json()
+        if not isinstance(body, dict):
+            body = {}
     except:
         body = {}
 
@@ -66,11 +65,8 @@ async def honeypot_interact(
         or body.get("input")
         or body.get("query")
         or body.get("content")
-        or ""
+        or "Hello"
     )
-
-    if not isinstance(message, str) or not message.strip():
-        message = "Hello"
 
     # -------- SCAM DETECTION --------
     detection = classifier.predict(message)
@@ -79,20 +75,15 @@ async def honeypot_interact(
     memory.add("scammer", message)
     context = memory.context()
 
-    try:
-        reply = agent.generate_reply(context, message)
-    except Exception:
-        reply = "I am confused, can you explain that again?"
-
+    reply = agent.generate_reply(context, message)
     memory.add("agent", reply)
 
     # -------- INTEL EXTRACTION --------
     intel = extractor.extract(message)
 
-    # -------- FINAL RESPONSE (VALIDATOR SAFE) --------
+    # -------- RESPONSE --------
     return {
         "success": True,
-        "message": "Honeypot interaction successful",
         "result": {
             "is_scam": bool(detection.get("is_scam", False)),
             "confidence": float(detection.get("confidence", 0.0)),
@@ -104,14 +95,3 @@ async def honeypot_interact(
             }
         }
     }
-
-# -------------------- RENDER ENTRYPOINT --------------------
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=port
-    )
