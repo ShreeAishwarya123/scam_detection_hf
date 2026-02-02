@@ -1,6 +1,6 @@
+import os
 from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import os
 from dotenv import load_dotenv
 
 from app.core.agent import HoneypotAgent
@@ -10,7 +10,7 @@ from app.core.extractor import IntelExtractor
 
 # -------------------- ENV --------------------
 load_dotenv()
-API_KEY = os.getenv("API_KEY")  
+API_KEY = os.getenv("API_KEY")
 
 if not API_KEY:
     raise RuntimeError("API_KEY not set in environment variables")
@@ -35,7 +35,10 @@ extractor = IntelExtractor()
 # -------------------- HEALTH --------------------
 @app.get("/")
 def health():
-    return {"success": True, "message": "Honeypot API running"}
+    return {
+        "success": True,
+        "message": "Honeypot API running"
+    }
 
 # -------------------- MAIN ENDPOINT --------------------
 @app.api_route("/honeypot/interact", methods=["POST", "OPTIONS"])
@@ -43,7 +46,7 @@ async def honeypot_interact(
     request: Request,
     x_api_key: str = Header(None)
 ):
-    # 🔐 HEADER VALIDATION (MANDATORY)
+    # -------- HEADER VALIDATION --------
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
@@ -78,7 +81,7 @@ async def honeypot_interact(
 
     try:
         reply = agent.generate_reply(context, message)
-    except:
+    except Exception:
         reply = "I am confused, can you explain that again?"
 
     memory.add("agent", reply)
@@ -86,7 +89,7 @@ async def honeypot_interact(
     # -------- INTEL EXTRACTION --------
     intel = extractor.extract(message)
 
-    # -------- VALIDATOR-FRIENDLY RESPONSE --------
+    # -------- FINAL RESPONSE (VALIDATOR SAFE) --------
     return {
         "success": True,
         "message": "Honeypot interaction successful",
@@ -101,3 +104,14 @@ async def honeypot_interact(
             }
         }
     }
+
+# -------------------- RENDER ENTRYPOINT --------------------
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port
+    )
