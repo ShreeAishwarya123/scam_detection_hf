@@ -1,7 +1,8 @@
 import os
-from fastapi import FastAPI, Header, HTTPException
+from typing import Any, Dict
+
+from fastapi import FastAPI, Header, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from app.core.agent import HoneypotAgent
@@ -30,24 +31,15 @@ memory = ConversationMemory()
 classifier = ScamClassifier()
 extractor = IntelExtractor()
 
-# -------------------- REQUEST MODEL --------------------
-class HoneypotRequest(BaseModel):
-    message: str
-
-# -------------------- RESPONSE MODEL --------------------
-class HoneypotResponse(BaseModel):
-    success: bool
-    result: dict
-
 # -------------------- HEALTH --------------------
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "honeypot"}
 
 # -------------------- MAIN ENDPOINT --------------------
-@app.post("/honeypot/interact", response_model=HoneypotResponse)
+@app.post("/honeypot/interact")
 async def honeypot_interact(
-    payload: HoneypotRequest,
+    payload: Dict[str, Any] = Body(...),
     x_api_key: str = Header(None)
 ):
     # -------- AUTH --------
@@ -57,9 +49,24 @@ async def honeypot_interact(
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    message = payload.message.strip()
+    # -------- SAFE MESSAGE EXTRACTION --------
+    message = (
+        payload.get("message")
+        or payload.get("text")
+        or payload.get("input")
+        or payload.get("query")
+        or payload.get("prompt")
+    )
+
+    if isinstance(message, dict):
+        message = str(message)
+
+    if not isinstance(message, str):
+        raise HTTPException(status_code=400, detail="Invalid message format")
+
+    message = message.strip()
     if not message:
-        raise HTTPException(status_code=400, detail="Message cannot be empty")
+        raise HTTPException(status_code=400, detail="Empty message")
 
     # -------- SCAM DETECTION --------
     detection = classifier.predict(message)
