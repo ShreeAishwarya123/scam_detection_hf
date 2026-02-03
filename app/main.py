@@ -1,13 +1,22 @@
 import os
-from fastapi import FastAPI, Request, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
-load_dotenv()
-API_KEY = os.getenv("API_KEY", "test_key")
+from app.core.agent import HoneypotAgent
+from app.core.memory import ConversationMemory
+from app.models.spam_classifier import ScamClassifier
+from app.core.extractor import IntelExtractor
 
+# -------------------- ENV --------------------
+load_dotenv()
+API_KEY = os.getenv("API_KEY")
+
+# -------------------- APP --------------------
 app = FastAPI()
 
+# -------------------- CORS --------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,50 +24,71 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# -------------------- CORE --------------------
+agent = HoneypotAgent()
+memory = ConversationMemory()
+classifier = ScamClassifier()
+extractor = IntelExtractor()
+
+# -------------------- REQUEST MODEL --------------------
+class HoneypotRequest(BaseModel):
+    message: str
+
+# -------------------- RESPONSE MODEL --------------------
+class HoneypotResponse(BaseModel):
+    success: bool
+    result: dict
+
+# -------------------- HEALTH --------------------
 @app.get("/")
-def health():
-    return {"status": "ok"}
+async def health():
+    return {"status": "ok", "service": "honeypot"}
 
-@app.api_route("/honeypot/interact", methods=["POST", "OPTIONS"])
+# -------------------- MAIN ENDPOINT --------------------
+@app.post("/honeypot/interact", response_model=HoneypotResponse)
 async def honeypot_interact(
-    request: Request,
-    authorization: str | None = Header(default=None),
-    x_api_key: str | None = Header(default=None),
+    payload: HoneypotRequest,
+    x_api_key: str = Header(None)
 ):
-    # ✅ AUTH (accept either header)
-    if authorization != API_KEY and x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    # -------- AUTH --------
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="Server misconfigured")
 
-    # ✅ SAFE BODY PARSING (NO VALIDATION)
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    # -------- SCAM DETECTION --------
+    detection = classifier.predict(message)
+
+    # -------- AGENT LOGIC --------
+    memory.add("scammer", message)
+    context = memory.context()
+
     try:
-        body = await request.json()
-    except:
-        body = {}
+        reply = agent.generate_reply(context, message)
+    except Exception:
+        reply = "Could you please explain that again?"
 
-    # ✅ ACCEPT AUDIO OR TEXT
-    audio_url = (
-        body.get("audio_url")
-        or body.get("audio")
-        or body.get("voice_url")
-    )
+    memory.add("agent", reply)
 
-    message = (
-        body.get("message")
-        or body.get("text")
-        or body.get("query")
-        or "Audio received"
-    )
+    # -------- INTEL EXTRACTION --------
+    intel = extractor.extract(message)
 
-    # ✅ ALWAYS RETURN VALID RESPONSE
+    # -------- FINAL RESPONSE --------
     return {
         "success": True,
-        "is_scam": True,
-        "confidence": 0.87,
-        "honeypot_active": True,
-        "agent_reply": "I’m not very good with phones, can you tell me what to do next?",
-        "extracted_intel": {
-            "upi_ids": [],
-            "links": [],
-            "bank_accounts": []
+        "result": {
+            "is_scam": bool(detection.get("is_scam", False)),
+            "confidence": float(detection.get("confidence", 0.0)),
+            "agent_reply": reply,
+            "extracted_intel": {
+                "upi_ids": intel.get("upi_ids", []),
+                "links": intel.get("links", []),
+                "bank_accounts": intel.get("bank_accounts", [])
+            }
         }
     }
