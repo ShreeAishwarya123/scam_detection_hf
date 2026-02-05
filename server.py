@@ -1,5 +1,8 @@
 from fastapi import FastAPI, Header, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+import re
+import json
+from datetime import datetime
 
 app = FastAPI()
 
@@ -12,9 +15,45 @@ app.add_middleware(
 
 API_KEY = "hcl_guvi_hp_9XfA72KqP"
 
+# Intel extraction functions
+def extract_upi_ids(text):
+    """Extract UPI IDs from text"""
+    upi_pattern = r'\b[A-Za-z0-9._-]+@[A-Za-z0-9.-]+\b'
+    return re.findall(upi_pattern, text)
+
+def extract_urls(text):
+    """Extract URLs from text"""
+    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+    return re.findall(url_pattern, text)
+
+def extract_phone_numbers(text):
+    """Extract phone numbers from text"""
+    phone_pattern = r'\b\d{10}\b|\+91\s?\d{10}\b'
+    return re.findall(phone_pattern, text)
+
+def extract_amounts(text):
+    """Extract monetary amounts from text"""
+    amount_pattern = r'[\$₹€£]\s*\d+(?:,\d{3})*(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:dollars|rupees|euros|pounds|rs|usd|inr|eur|gbp)'
+    return re.findall(amount_pattern, text, re.IGNORECASE)
+
+def log_intel(message, extracted_intel):
+    """Log extracted intelligence for monitoring"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "message": message,
+        "extracted_intel": extracted_intel
+    }
+    print(f"🔍 INTEL LOGGED: {json.dumps(log_entry, indent=2)}")
+    return log_entry
+
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "honeypot"}
+
+@app.get("/intel")
+async def get_intel():
+    """Endpoint to view collected intelligence (for monitoring)"""
+    return {"message": "Intel extraction is active. Check server logs for extracted UPI IDs, URLs, phone numbers, and amounts."}
 
 @app.post("/honeypot/interact")
 async def honeypot_interact(
@@ -30,6 +69,17 @@ async def honeypot_interact(
         message = payload["message"]["text"]
     else:
         message = str(payload.get("message", ""))
+    
+    # Extract intelligence from message
+    extracted_intel = {
+        "upi_ids": extract_upi_ids(message),
+        "urls": extract_urls(message),
+        "phone_numbers": extract_phone_numbers(message),
+        "amounts": extract_amounts(message)
+    }
+    
+    # Log the extracted intelligence
+    log_intel(message, extracted_intel)
     
     # Optimized response based on keywords for faster intel extraction
     message_lower = message.lower()
@@ -71,4 +121,4 @@ async def honeypot_interact(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8003)
+    uvicorn.run(app, host="0.0.0.0", port=8004)
