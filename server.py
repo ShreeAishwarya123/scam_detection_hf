@@ -31,18 +31,37 @@ async def honeypot_interact(
     else:
         message = str(payload.get("message", ""))
     
-    # Simple response based on keywords
+    # Optimized response based on keywords for faster intel extraction
     message_lower = message.lower()
-    if "blocked" in message_lower or "suspended" in message_lower:
-        reply = "Oh no! My account is blocked? What should I do to fix this? Can you walk me through the steps?"
-    elif "verify" in message_lower or "confirm" in message_lower:
-        reply = "I need to verify something? Where do I go to do that? Is there a link I should click?"
-    elif "payment" in message_lower or "send money" in message_lower:
-        reply = "I need to make a payment? How much is it and where should I send it?"
-    elif "prize" in message_lower or "winner" in message_lower:
-        reply = "I won something? That's amazing! What do I need to do to claim my prize?"
+    
+    # Priority 1: Payment/UPI extraction (highest priority)
+    if any(word in message_lower for word in ["pay", "send", "transfer", "upi", "paytm", "phonepe", "gpay"]):
+        if "@" in message:
+            reply = f"I need to make a payment? I see there's an email or UPI ID mentioned. Could you confirm the exact payment address? I want to make sure I send it to the right place."
+        else:
+            reply = "I need to make a payment? How much is it and what's the payment method? UPI, bank transfer, or something else?"
+    
+    # Priority 2: Account verification (quick extraction)
+    elif any(word in message_lower for word in ["blocked", "suspended", "verify", "confirm"]):
+        if "link" in message_lower or "click" in message_lower:
+            reply = "My account is blocked? Where should I go to verify? Is there a website link I should click? Please send the exact URL."
+        else:
+            reply = "My account needs verification? What steps should I follow? Is there a customer service number or specific department I should contact?"
+    
+    # Priority 3: Prize/lottery (quick details)
+    elif any(word in message_lower for word in ["prize", "winner", "lottery", "congratulations", "reward"]):
+        if "fee" in message_lower or "cost" in message_lower:
+            reply = "I won something amazing! What's the processing fee amount and where should I send it? I need the exact details to claim my prize."
+        else:
+            reply = "I really won a prize? That's fantastic! What do I need to do to claim it? Should I provide my bank details or something?"
+    
+    # Priority 4: Urgent action (quick response)
+    elif any(word in message_lower for word in ["urgent", "immediate", "act now", "limited time"]):
+        reply = "This sounds urgent! What exactly do I need to do right now? Give me the specific steps so I don't miss anything important."
+    
+    # Default response
     else:
-        reply = "Thank you for the message. Could you tell me more about this?"
+        reply = "Thank you for your message. Could you tell me more about what I need to do?"
     
     # Return hackathon format
     return {
@@ -52,4 +71,4 @@ async def honeypot_interact(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8003)
