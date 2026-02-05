@@ -48,14 +48,20 @@ async def honeypot_interact(
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    # -------- SAFE MESSAGE EXTRACTION --------
-    message = (
-        payload.get("message")
-        or payload.get("text")
-        or payload.get("input")
-        or payload.get("query")
-        or payload.get("prompt")
-    )
+    # -------- MESSAGE EXTRACTION (Hackathon Format) --------
+    # Handle both old format and new hackathon format
+    if "message" in payload and "text" in payload["message"]:
+        # New hackathon format
+        message = payload["message"]["text"]
+    else:
+        # Old format - fallback
+        message = (
+            payload.get("message")
+            or payload.get("text")
+            or payload.get("input")
+            or payload.get("query")
+            or payload.get("prompt")
+        )
 
     if isinstance(message, dict):
         message = str(message)
@@ -82,20 +88,12 @@ async def honeypot_interact(
 
     memory.add("agent", reply)
 
-    # -------- INTEL EXTRACTION --------
+    # -------- INTEL EXTRACTION (for logging, not returned) --------
     intel = extractor.extract(message)
+    print(f"Extracted intel: {intel}")  # Log for monitoring
 
-    # -------- FINAL RESPONSE --------
+    # -------- HACKATHON REQUIRED RESPONSE FORMAT --------
     return {
-        "success": True,
-        "result": {
-            "is_scam": bool(detection.get("is_scam", False)),
-            "confidence": float(detection.get("confidence", 0.0)),
-            "agent_reply": reply,
-            "extracted_intel": {
-                "upi_ids": intel.get("upi_ids", []),
-                "links": intel.get("links", []),
-                "bank_accounts": intel.get("bank_accounts", [])
-            }
-        }
+        "status": "success",
+        "reply": reply
     }
