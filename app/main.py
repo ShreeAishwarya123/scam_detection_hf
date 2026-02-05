@@ -2,11 +2,7 @@ from fastapi import FastAPI, Header, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
-
-from app.core.agent import HoneypotAgent
-from app.core.memory import ConversationMemory
-from app.core.scam_detector import detect_scam
-from app.core.extractor import IntelExtractor
+import time
 
 # -------------------- ENV --------------------
 load_dotenv()
@@ -23,10 +19,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- CORE --------------------
-agent = HoneypotAgent()
-memory = ConversationMemory()
-extractor = IntelExtractor()
+# -------------------- SIMPLE SCAM DETECTION --------------------
+def detect_scam_simple(message: str) -> bool:
+    """Simple keyword-based scam detection"""
+    scam_keywords = [
+        'urgent', 'immediate', 'act now', 'blocked', 'suspended',
+        'verify', 'confirm', 'account', 'bank', 'payment', 'send money',
+        'prize', 'winner', 'lottery', 'congratulations', 'click here'
+    ]
+    message_lower = message.lower()
+    return any(keyword in message_lower for keyword in scam_keywords)
+
+# -------------------- SIMPLE AGENT RESPONSE --------------------
+def generate_reply_simple(message: str) -> str:
+    """Simple response generation without external API calls"""
+    if detect_scam_simple(message):
+        if "blocked" in message.lower() or "suspended" in message.lower():
+            return "Oh no! My account is blocked? What should I do to fix this? Can you walk me through the steps?"
+        elif "verify" in message.lower() or "confirm" in message.lower():
+            return "I need to verify something? Where do I go to do that? Is there a link I should click?"
+        elif "payment" in message.lower() or "send money" in message.lower():
+            return "I need to make a payment? How much is it and where should I send it?"
+        elif "prize" in message.lower() or "winner" in message.lower():
+            return "I won something? That's amazing! What do I need to do to claim my prize?"
+        else:
+            return "This sounds important. Can you tell me more about what I need to do?"
+    else:
+        return "Thank you for the message. Could you tell me more about this?"
 
 # -------------------- HEALTH --------------------
 @app.get("/")
@@ -39,12 +58,9 @@ async def honeypot_interact(
     payload: dict = Body(...),
     x_api_key: str = Header(None)
 ):
+    start_time = time.time()
+    
     # -------- AUTH --------
-    if not API_KEY:
-        # Fallback for development or if API_KEY not set
-        pass 
-        # raise HTTPException(status_code=500, detail="Server misconfigured")
-
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
@@ -73,24 +89,12 @@ async def honeypot_interact(
     if not message:
         raise HTTPException(status_code=400, detail="Empty message")
 
-    # -------- SCAM DETECTION --------
-    detection = detect_scam(message)
+    # -------- GENERATE RESPONSE --------
+    reply = generate_reply_simple(message)
 
-    # -------- AGENT LOGIC --------
-    memory.add("scammer", message)
-    context = memory.context()
-
-    try:
-        reply = agent.generate_reply(context, message)
-    except Exception as e:
-        print(f"Error generating reply: {e}")
-        reply = "Could you please explain that again?"
-
-    memory.add("agent", reply)
-
-    # -------- INTEL EXTRACTION (for logging, not returned) --------
-    intel = extractor.extract(message)
-    print(f"Extracted intel: {intel}")  # Log for monitoring
+    # -------- LOGGING --------
+    response_time = time.time() - start_time
+    print(f"Request processed in {response_time:.3f}s: {message[:50]}...")
 
     # -------- HACKATHON REQUIRED RESPONSE FORMAT --------
     return {
