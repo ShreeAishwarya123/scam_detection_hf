@@ -13,7 +13,6 @@ from app.core.memory import ConversationMemory
 from app.core.scam_detector import detect_scam
 from app.core.advanced_detector import detect_scam_advanced
 from app.core.extractor import IntelExtractor
-from app.core.multi_language_agent import generate_multi_language_reply
 from app.core.security import validate_request_security, log_api_request
 from app.api.analytics import router as analytics_router
 
@@ -100,8 +99,8 @@ async def honeypot_interact(
     context = memory.context()
 
     try:
-        # Use multi-language agent for better cultural adaptation
-        reply = generate_multi_language_reply(context, message)
+        # Use standard honeypot agent
+        reply = agent.generate_reply(context, message)
     except Exception as e:
         print(f"Error generating reply: {e}")
         reply = "Could you please explain that again?"

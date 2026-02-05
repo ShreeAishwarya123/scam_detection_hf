@@ -5,8 +5,8 @@
 ### **1. Advanced AI & ML Ensemble** 🤖
 - **Multi-Model Detection**: BERT, DistilBERT, RoBERTa ensemble
 - **Pattern Recognition**: 10+ scam patterns with severity scoring
-- **Cultural Intelligence**: Multi-language support (10+ Indian languages)
-- **Smart Responses**: Contextual, culturally-adapted honeypot replies
+- **Smart Responses**: Contextual, authentic honeypot conversations
+- **Advanced Analytics**: Real-time intelligence gathering
 
 ### **2. Real-Time Analytics Dashboard** 📊
 - **Live Monitoring**: Request tracking, scam detection rates
@@ -44,7 +44,7 @@
     "severity": 0.78,
     "scam_types": ["Authority Impersonation", "Financial Fraud"],
     "risk_level": "HIGH",
-    "agent_reply": "अरे भाई, मुझे समझ नहीं आ रहा! क्या आप धीरे धीरे बता सकते हैं?",
+    "agent_reply": "Oh my goodness, that sounds scary! Is this the right UPI ID? I want to make sure I have the correct one before sending any money.",
     "detected_patterns": ["urgency_present", "authority_present", "financial_present"],
     "extracted_intel": {
       "upi_ids": ["scammer@paytm"],
@@ -59,15 +59,15 @@
 
 ### **Technical Excellence** (25/25)
 - ✅ Advanced ML ensemble methods
-- ✅ Multi-language AI responses
+- ✅ Smart honeypot conversations
 - ✅ Real-time analytics
 - ✅ Production-grade security
 
 ### **Innovation** (25/25)
-- ✅ Cultural adaptation for Indian languages
-- ✅ Smart honeypot conversations
-- ✅ Intelligence extraction system
-- ✅ Live dashboard with visualizations
+- ✅ AI-powered scam fighting
+- ✅ Smart conversation system
+- ✅ Intelligence extraction
+- ✅ Real-time monitoring
 
 ### **Impact** (25/25)
 - ✅ Real-world scam fighting
@@ -84,13 +84,13 @@
 ## 🚀 **Demo Script for Judges**
 
 ### **1. Introduction (30 seconds)**
-"Judges, I present an AI-powered honeypot system that fights scams by wasting scammers' time while gathering intelligence. It detects scams in 10+ Indian languages and engages scammers in culturally-adapted conversations."
+"Judges, I present an AI-powered honeypot system that fights scams by wasting scammers' time while gathering intelligence. It detects sophisticated scams and engages scammers in authentic conversations."
 
 ### **2. Live Demo (2 minutes)**
 - **Show Dashboard**: "Look at our real-time analytics - we've detected 1,247 scams this week"
 - **Test Scam Detection**: "Watch as it detects this sophisticated bank impersonation scam"
-- **Multi-Language Demo**: "Now watch it handle a Hindi scam with cultural adaptation"
-- **Intelligence Extraction**: "See how we extract UPI IDs, phone numbers, and malicious links"
+- **Smart Conversation**: "See how our AI responds as a confused elderly person"
+- **Intelligence Extraction**: "Watch as we extract UPI IDs, phone numbers, and malicious links"
 
 ### **3. Technical Excellence (1 minute)**
 "We use an ensemble of BERT models, Redis caching for performance, and enterprise-grade security. Our response time is under 500ms, and we can handle 10,000+ concurrent requests."
@@ -101,14 +101,14 @@
 ## 🎯 **Competitive Advantages**
 
 ### **vs Other Teams**:
-1. **Multi-Language Support**: Others only handle English
-2. **Cultural Adaptation**: We adapt responses to regional contexts
-3. **Real Intelligence**: We extract actionable fraud data
-4. **Production Ready**: Others have prototypes, we have a deployable system
+1. **Smart Conversations**: Others just detect, we engage
+2. **Real Intelligence**: We extract actionable fraud data
+3. **Production Ready**: Others have prototypes, we have a deployable system
+4. **Advanced Analytics**: Real-time dashboard with beautiful visualizations
 
 ### **Unique Features**:
-- 🎭 **Cultural Personas**: Confused elderly in 10+ languages
-- 📊 **Live Analytics**: Real-time dashboard with beautiful visualizations
+- 🎭 **Authentic Conversations**: Confused elderly persona
+- 📊 **Live Analytics**: Real-time dashboard with visualizations
 - 🛡️ **Enterprise Security**: Rate limiting, threat detection, IP blocking
 - ⚡ **High Performance**: Sub-500ms response times with Redis caching
 
@@ -117,7 +117,7 @@
 ### **Technical Depth**:
 - Advanced ML ensemble (BERT + DistilBERT + RoBERTa)
 - Redis caching with smart invalidation
-- Multi-language cultural adaptation
+- Smart conversation system
 - Real-time analytics with Chart.js
 
 ### **Business Impact**:
@@ -145,10 +145,10 @@
 1. Deploy to production (already ready!)
 2. Partner with banks and fintech companies
 3. Open-source community contribution
-4. Patent the cultural adaptation technology
+4. Patent the conversation technology
 
 ### **Long-term Vision**:
-- Become the standard for scam detection in India
+- Become the standard for scam detection
 - Expand to global markets
 - AI-powered fraud prevention platform
 - Government partnerships for consumer protection
