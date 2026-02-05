@@ -35,8 +35,9 @@ class LocalLLM:
             response = self.client.chat_completion(
                 messages,
                 model=self.model,
-                max_tokens=150,
+                max_tokens=100,  # Reduced for faster response
                 temperature=0.7,
+                timeout=15,  # Add explicit timeout
             )
 
             return response.choices[0].message.content.strip()
